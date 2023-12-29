@@ -1,0 +1,59 @@
+python manage.py shell
+from news.models import *
+
+# Создание двух пользователей
+user1 = User.objects.create_user('Smit', password='Smit2024!')
+user2 = User.objects.create_user('Shilin1989', password='SoSo2024*')
+
+# Создание двух объектов модели Author
+author1 = Author.objects.create(user=user1)
+author2 = Author.objects.create(user=user2)
+
+# Добавление 4 категорий
+category1 = Category.objects.create(name='Спорт')
+category2 = Category.objects.create(name='Политика')
+category3 = Category.objects.create(name='Экономика')
+category4 = Category.objects.create(name='Происшествия')
+
+# Добавление статей и новости
+post1 = Post.objects.create(author=author1, type=Post.ARTICLE, title='Александр Овечкин', text='Александр Овечкин супер хоккеист')
+post2 = Post.objects.create(author=author1, type=Post.ARTICLE, title='Рубль пробил днище', text='Рубль пробил днище так что решено поднять процентную ставку')
+post3 = Post.objects.create(author=author2, type=Post.NEWS, title='Синсация кошка родила 5 щинят', text='В тридявятом царстве, в двадцатом государстве ')
+
+# Присвоение категорий постам
+PostCategory.objects.create(post=post1, category=category1)
+PostCategory.objects.create(post=post2, category=category4)
+PostCategory.objects.create(post=post2, category=category3)
+PostCategory.objects.create(post=post3, category=category4)
+
+# Добавление комментариев
+comment1 = Comment.objects.create(post=post1, user=user1, text='Согласен на все 100%')
+comment2 = Comment.objects.create(post=post1, user=user2, text='Овечкина в ХК Торпедо к Ларионову в команду')
+comment3 = Comment.objects.create(post=post2, user=user1, text='Это все из-за Америкосов')
+comment4 = Comment.objects.create(post=post3, user=user2, text='Шаболда, насмотрелась на европейские ценности! ')
+
+# Применение like и dislike
+post1.like()
+comment1.like()
+post2.dislike()
+comment4.dislike()
+
+# Обновление рейтингов авторов
+author1.update_rating()
+author2.update_rating()
+
+# Вывод лучшего пользователя
+best_author = Author.objects.all().order_by('-rating').first()
+print(best_author.user.username, best_author.rating)
+#Smit 2
+
+# Вывод лучшей статьи
+best_post = Post.objects.all().order_by('-rating').first()
+print(best_post.creation_date, best_post.author.user.username, best_post.rating, best_post.title, best_post.preview())
+#2023-12-29 09:57:15.367647+00:00 Smit 1 Александр Овечкин Александр Овечкин супер хоккеист...
+
+
+# Вывод всех комментариев к лучшей статье
+comments = Comment.objects.filter(post=best_post)
+for comment in comments:
+    print(comment.creation_date, comment.user.username, comment.rating, comment.text)
