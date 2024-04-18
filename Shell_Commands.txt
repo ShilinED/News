@@ -15,22 +15,21 @@ category2 = Category.objects.create(name='Политика')
 category3 = Category.objects.create(name='Экономика')
 category4 = Category.objects.create(name='Происшествия')
 
-# Добавление статей и новости
-post1 = Post.objects.create(author=author1, type=Post.ARTICLE, title='Александр Овечкин', text='Александр Овечкин супер хоккеист')
-post2 = Post.objects.create(author=author1, type=Post.ARTICLE, title='Рубль пробил днище', text='Рубль пробил днище так что решено поднять процентную ставку')
-post3 = Post.objects.create(author=author2, type=Post.NEWS, title='Синсация кошка родила 5 щинят', text='В тридявятом царстве, в двадцатом государстве ')
+# Добавляем 2 статьи и одну новость:
+post1 = Post.objects.create(author=author1, post_type='статья', title='Овечкин возвращается в россию', text='Овечкин переходит в ХК Торпедо из-за санкций')
+post2 = Post.objects.create(author=author2, post_type='статья', title='Рубль рухнул', text='Рубль пробил днище и стремится еще глуюже')
+news1 = Post.objects.create(author=author1, post_type='новость', title='Девушка захотела стать мальчиком', text='Юная девушка решила сменить пол, но ей не дают это сделать из-за российского законодательства ')
 
 # Присвоение категорий постам
-PostCategory.objects.create(post=post1, category=category1)
-PostCategory.objects.create(post=post2, category=category4)
-PostCategory.objects.create(post=post2, category=category3)
-PostCategory.objects.create(post=post3, category=category4)
+post1.categories.add(category1, category2)
+post2.categories.add(category3)
+news1.categories.add(category4)
 
 # Добавление комментариев
 comment1 = Comment.objects.create(post=post1, user=user1, text='Согласен на все 100%')
 comment2 = Comment.objects.create(post=post1, user=user2, text='Овечкина в ХК Торпедо к Ларионову в команду')
 comment3 = Comment.objects.create(post=post2, user=user1, text='Это все из-за Америкосов')
-comment4 = Comment.objects.create(post=post3, user=user2, text='Шаболда, насмотрелась на европейские ценности! ')
+comment4 = Comment.objects.create(post=news1, user=user2, text='Шаболда, насмотрелась на европейские ценности! ')
 
 # Применение like и dislike
 post1.like()
@@ -43,17 +42,20 @@ author1.update_rating()
 author2.update_rating()
 
 # Вывод лучшего пользователя
-best_author = Author.objects.all().order_by('-rating').first()
-print(best_author.user.username, best_author.rating)
-#Smit 2
+best_author = Author.objects.order_by('-rating').values('user__username', 'rating').first()
+print(best_author['user__username'], best_author['rating'])
+Smit 4
+
 
 # Вывод лучшей статьи
-best_post = Post.objects.all().order_by('-rating').first()
-print(best_post.creation_date, best_post.author.user.username, best_post.rating, best_post.title, best_post.preview())
-#2023-12-29 09:57:15.367647+00:00 Smit 1 Александр Овечкин Александр Овечкин супер хоккеист...
+best_post = Post.objects.filter(post_type='статья').order_by('-rating').first()
+print(best_post.created_time, best_post.author.user.username, best_post.rating, best_post.title, best_post.preview())
+2024-04-10 11:53:28.667427+00:00 Smit 1 Овечкин возвращается в россию Овечкин переходит в ХК Торпедо из-за санкций...
+
+
 
 
 # Вывод всех комментариев к лучшей статье
-comments = Comment.objects.filter(post=best_post)
+comments = Comment.objects.filter(post=post1).values('created_time', 'user__username', 'rating', 'text')
 for comment in comments:
-    print(comment.creation_date, comment.user.username, comment.rating, comment.text)
+    print(comment['created_time'], comment['user__username'], comment['rating'], comment['text'])

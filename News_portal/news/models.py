@@ -1,54 +1,59 @@
-# Импортируем необходимые модули: модели Django и встроенную модель пользователя User.
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import Sum
+from django.urls import reverse
+from django.core.cache import cache
 
-# Определяем модель Author для хранения информации об авторах.
+
 class Author(models.Model):
-    # Связь один к одному с моделью User. Каждый автор ассоциирован с одним пользователем.
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # Целочисленное поле для хранения рейтинга автора.
     rating = models.IntegerField(default=0)
 
-    # Метод для обновления рейтинга автора.
     def update_rating(self):
-        # Рассчитываем рейтинг как сумму рейтингов всех постов автора, умноженных на 3,
-        # плюс сумму рейтингов всех комментариев пользователя,
-        # плюс сумму рейтингов всех комментариев к постам автора.
-        self.rating = sum([post.rating * 3 for post in Post.objects.filter(author=self)]) + \
-                      sum([comment.rating for comment in Comment.objects.filter(user=self.user)]) + \
-                      sum([comment.rating for comment in Comment.objects.filter(post__author=self)])
-        # Сохраняем обновленный рейтинг.
+        post_rating = Post.objects.filter(author=self).aggregate(
+            Sum('rating'))['rating__sum']
+        comment_rating = Comment.objects.filter(user=self.user).aggregate(
+            Sum('rating'))['rating__sum']
+        comment_rating_to_posts = Comment.objects.filter(
+            post__author__user=self.user).aggregate(Sum('rating'))['rating__sum']
+
+        self.rating = ((post_rating * 3) + comment_rating + comment_rating_to_posts)
         self.save()
 
-# Определяем модель Category для хранения категорий постов.
 class Category(models.Model):
-    # Строковое поле для названия категории, каждое название должно быть уникальным.
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=255, unique=True)
+    subscribers = models.ManyToManyField(User, blank=True, related_name='categories')
 
-# Определяем модель Post для хранения постов (статей или новостей).
+    def __str__(self):
+        return self.name.title()
+
+
 class Post(models.Model):
-    # Связь многие к одному с моделью Author.
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
-    # Константы и выбор для типа поста: статья или новость.
-    ARTICLE = 'AR'
-    NEWS = 'NW'
+    news = "NW"
+    articles = "AR"
+
     POST_TYPES = [
-        (ARTICLE, 'Article'),
-        (NEWS, 'News'),
+        (news, "Новость"),
+        (articles, "Статья")
     ]
-    # Строковое поле для типа поста с предопределенными выборами.
-    type = models.CharField(max_length=2, choices=POST_TYPES, default=ARTICLE)
-    # Поле даты и времени для автоматической установки времени создания поста.
-    creation_date = models.DateTimeField(auto_now_add=True)
-    # Связь многие ко многим с моделью Category через промежуточную модель PostCategory.
-    categories = models.ManyToManyField(Category, through='PostCategory')
-    # Поля для заголовка и текста поста.
-    title = models.CharField(max_length=100)
+    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    post_type = models.CharField(max_length=10, choices=POST_TYPES, default=news)
+    created_time = models.DateTimeField(auto_now_add=True)
+    categories = models.ManyToManyField(Category, through='PostCategory', related_name='PostCategory')
+    title = models.CharField(max_length=255)
     text = models.TextField()
-    # Целочисленное поле для рейтинга поста.
     rating = models.IntegerField(default=0)
 
-    # Методы для увеличения и уменьшения рейтинга поста.
+    def __str__(self):
+        return f'{self.title.title()}: {self.text[:20]}'
+
+    def get_absolute_url(self):
+        return reverse('post_detail', args=[str(self.id)])
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        cache.delete(f'post-{self.pk}')
+
     def like(self):
         self.rating += 1
         self.save()
@@ -57,28 +62,22 @@ class Post(models.Model):
         self.rating -= 1
         self.save()
 
-    # Метод для предварительного просмотра текста поста (первые 124 символа плюс многоточие).
     def preview(self):
-        return self.text[:124] + '...'
+        return f'{self.text[:124]}...'
 
-# Промежуточная модель PostCategory для связи многие ко многим между Post и Category.
+
 class PostCategory(models.Model):
-    # Связь многие к одному с моделью Post и Category.
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
 
-# Определяем модель Comment для хранения комментариев к постам.
+
 class Comment(models.Model):
-    # Связь многие к одному с моделями Post и User.
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    # Поле для текста комментария и автоматической установки времени создания комментария.
     text = models.TextField()
-    creation_date = models.DateTimeField(auto_now_add=True)
-    # Целочисленное поле для рейтинга комментария.
+    created_time = models.DateTimeField(auto_now_add=True)
     rating = models.IntegerField(default=0)
 
-    # Методы для увеличения и уменьшения рейтинга комментария.
     def like(self):
         self.rating += 1
         self.save()
@@ -86,5 +85,3 @@ class Comment(models.Model):
     def dislike(self):
         self.rating -= 1
         self.save()
-
-
