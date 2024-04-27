@@ -156,13 +156,13 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'#'mandatory'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 
 ACCOUNT_FORMS = {'signup': 'accounts.forms.BasicSignupForm'}
 
 EMAIL_HOST = 'smtp.yandex.ru'
 EMAIL_PORT = 465
-EMAIL_HOST_USER = 'antiquerus.new'#'sf.project.notification'
+EMAIL_HOST_USER = 'sf.project.notification'
 EMAIL_HOST_PASSWORD = '4cwolykO'
 EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = 'antiquerus.new@yandex.ru'
@@ -174,8 +174,92 @@ SITE_URL = 'http://127.0.0.1:8000'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = 'redis://localhost:6379'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+LOGS_DIR = os.path.join(BASE_DIR, 'logi')
+
+
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s - %(levelname)s - %(message)s',
+        },
+        'file_format': {
+            'format': '%(asctime)s - %(levelname)s - %(module)s - %(message)s',
+        },
+        'error_file_format': {
+            'format': '%(asctime)s - %(levelname)s - %(message)s\n%(pathname)s\n',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+            'level': 'DEBUG',
+        },
+        'general_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'general.log'),
+            'formatter': 'file_format',
+            'level': 'INFO',
+        },
+        'errors_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'errors.log'),
+            'formatter': 'error_file_format',
+            'level': 'ERROR',
+        },
+        'security_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'security.log'),
+            'formatter': 'file_format',
+            'level': 'INFO',
+            'filters': ['security'],
+        },
+        'mail_admins': {
+            'class': 'django.utils.log.AdminEmailHandler',
+            'level': 'ERROR',
+            'filters': ['error_filter'],
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'general_file', 'errors_file', 'mail_admins'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django.security': {
+            'handlers': ['security_file', 'mail_admins'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['errors_file', 'mail_admins'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+        'django.server': {
+            'handlers': ['errors_file', 'mail_admins'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+    'filters': {
+        'error_filter': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'security': {
+            '()': 'logging.Filter',
+            'name': 'django.security',
+        },
+    },
+}
